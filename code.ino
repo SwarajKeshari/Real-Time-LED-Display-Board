@@ -76,6 +76,26 @@ void updateRTC(const char* timePart, const char* datePart) {
     }
   }
 
+  Serial.print("RTC Updated -> ");
+
+Serial.print(d);
+Serial.print("/");
+
+Serial.print(mo);
+Serial.print("/");
+
+Serial.print(y);
+
+Serial.print(" ");
+
+Serial.print(h);
+Serial.print(":");
+
+Serial.print(m);
+Serial.print(":");
+
+Serial.println(s);
+
   rtc.adjust(DateTime(y, mo, d, h, m, s));
 }
 
@@ -85,10 +105,13 @@ void updateRTC(const char* timePart, const char* datePart) {
 
 void processCommand(char *cmd) {
 
-  // =====================================
+  Serial.println();
+  Serial.println("---------------------");
+
+  Serial.print("Command: ");
+  Serial.println(cmd);
+
   // MESSAGE
-  // *TEXT#
-  // =====================================
 
   if (cmd[0] == '*') {
 
@@ -105,23 +128,25 @@ void processCommand(char *cmd) {
       );
 
       Text[sizeof(Text) - 1] = '\0';
+
+      Serial.print("Message Updated: ");
+      Serial.println(Text);
     }
 
     return;
   }
 
-  // =====================================
-  // DATE/TIME
-  // #@TIME,DATE
-  // =====================================
+  // DATETIME
 
   if (strncmp(cmd, "#@", 2) == 0) {
 
-    char temp[50];
+    char temp[60];
 
-    strncpy(temp,
-            cmd + 2,
-            sizeof(temp) - 1);
+    strncpy(
+      temp,
+      cmd + 2,
+      sizeof(temp) - 1
+    );
 
     temp[sizeof(temp) - 1] = '\0';
 
@@ -130,10 +155,20 @@ void processCommand(char *cmd) {
 
     if (timePart && datePart) {
 
-      updateRTC(timePart, datePart);
+      Serial.print("Time Part: ");
+      Serial.println(timePart);
+
+      Serial.print("Date Part: ");
+      Serial.println(datePart);
+
+      updateRTC(
+        timePart,
+        datePart
+      );
     }
   }
 }
+
 
 // ----------------------------------------------------
 // BLUETOOTH
@@ -148,55 +183,28 @@ void checkBluetooth() {
 
     char c = BT.read();
 
-    // Message Mode
-    // *TEXT#
+    Serial.print(c);
 
-    if (c == '*') {
+    if (c == '\r')
+      continue;
+
+    if (c == '\n') {
+
+      buffer[index] = '\0';
+
+      if (index > 0) {
+
+        processCommand(buffer);
+      }
 
       index = 0;
-      buffer[index++] = c;
     }
 
-    else if (index > 0) {
+    else {
 
       if (index < sizeof(buffer) - 1) {
 
         buffer[index++] = c;
-      }
-
-      // End of message command
-
-      if (c == '#') {
-
-        buffer[index] = '\0';
-
-        processCommand(buffer);
-
-        index = 0;
-      }
-    }
-
-    // Date Time Command
-    // #@HH/MM/SS,DD/MM/YY
-
-    if (c == '#') {
-
-      delay(20);
-
-      String dt = "#";
-
-      while (BT.available()) {
-
-        dt += (char)BT.read();
-      }
-
-      if (dt.startsWith("#@")) {
-
-        char cmd[60];
-
-        dt.toCharArray(cmd, sizeof(cmd));
-
-        processCommand(cmd);
       }
     }
   }
@@ -208,15 +216,27 @@ void checkBluetooth() {
 
 void setup() {
 
+  Serial.begin(9600);
+
+  Serial.println("================================");
+  Serial.println("Real-Time LED Display Board");
+  Serial.println("System Starting...");
+  Serial.println("================================");
+
   Wire.begin();
 
   BT.begin(9600);
 
   if (!rtc.begin()) {
+
+    Serial.println("RTC NOT FOUND!");
+
     while (1);
   }
 
-  // Uncomment once
+  Serial.println("RTC Connected");
+  Serial.println("Bluetooth Ready");
+
   // rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
 
   Timer1.initialize(1000);
@@ -224,6 +244,8 @@ void setup() {
 
   dmd.clearScreen(true);
   dmd.selectFont(SystemFont5x7);
+
+  Serial.println("Display Ready");
 }
 
 // ----------------------------------------------------
